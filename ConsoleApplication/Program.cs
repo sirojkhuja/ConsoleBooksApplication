@@ -7,6 +7,7 @@ namespace ConsoleApplication
     {
         static void Main(string[] args)
         {
+            new DBConnection();
             new Program().start();
         }
 
@@ -166,5 +167,40 @@ namespace ConsoleApplication
             choosenMenu = 1;
             Console.WriteLine();
         }
+    }
+
+    internal class DBConnection
+    {
+        private string DB_NAME;
+        private string DB_USER;
+        private string DB_PASS;
+        public DBConnection()
+        {
+            loadConfigs();
+            connect();
+        }
+
+        private void loadConfigs()
+        {
+            DotNetEnv.Env.TraversePath().Load();
+            DB_NAME = DotNetEnv.Env.GetString("DBNAME");
+            DB_USER = DotNetEnv.Env.GetString("DBUSER");
+            DB_PASS = DotNetEnv.Env.GetString("DBPASS");
+        }
+
+        private void connect()
+        {
+
+        }
+    }
+
+    internal class Book
+    {
+        
+    }
+
+    internal class BookService
+    {
+
     }
 }
