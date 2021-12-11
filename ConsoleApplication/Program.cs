@@ -1,13 +1,15 @@
 ﻿using System;
+using System.Collections;
 using ConsoleTables;
+using MySql.Data.MySqlClient;
 
 namespace ConsoleApplication
 {
+    // Main class
     internal class Program
     {
         static void Main(string[] args)
         {
-            new DBConnection();
             new Program().start();
         }
 
@@ -16,6 +18,7 @@ namespace ConsoleApplication
         public int currentMenu = 0;
         public int choosenMenu = 0;
         public bool exit = false;
+        private BookService service;
         public string[][] allbooks = {
                 new string[]{"C# 8.0 and .NET Core 3.0", "Mark J. Price", "978-1788478120", "2019" },
                 new string[]{"C# in Depth", "Jon Skeet", "978-1617294532", "2020"},
@@ -24,8 +27,7 @@ namespace ConsoleApplication
 
         public Program()
         {
-            // load books from a local array or from a database
-            loadBooks();
+            this.service = new BookService();
 
             // menus with method names
             menus = new string[][]{
@@ -40,11 +42,10 @@ namespace ConsoleApplication
         {
             // set table header data
             cTable = new ConsoleTable("#","Title", "Author", "ISBN", "Published Year");
-            int index = 1;
-            foreach (string[] books in allbooks)
+            ArrayList allbooks = this.service.getAllBooks();
+            foreach (Book book in allbooks)
             {
-                cTable.AddRow(index, books[0], books[1], books[2], books[3]);
-                index++;
+                cTable.AddRow(book.ID, book.Title, book.Author, book.ISBN, book.Year);
             }
         }
 
@@ -108,16 +109,17 @@ namespace ConsoleApplication
 
         public void addBook()
         {
+            Book newBook = new Book();
             Console.Write("Title: ");
-            string title = Console.ReadLine();
+            newBook.Title = Console.ReadLine();
             Console.Write("Author: ");
-            string author = Console.ReadLine();
+            newBook.Author = Console.ReadLine();
             Console.Write("ISBN: ");
-            string ISBN = Console.ReadLine();
+            newBook.ISBN = Console.ReadLine();
             Console.Write("Published Year: ");
-            string year = Console.ReadLine();
+            newBook.Year = Console.ReadLine();
 
-            cTable.AddRow(title, author, ISBN, year);
+            service.AddNewBook(newBook);
             currentMenu--;
             choosenMenu = 5;
             Console.WriteLine();
@@ -162,6 +164,7 @@ namespace ConsoleApplication
 
         public void allBooks()
         {
+            loadBooks();
             cTable.Write();
             currentMenu = 1;
             choosenMenu = 1;
@@ -169,12 +172,81 @@ namespace ConsoleApplication
         }
     }
 
+   
+    // Entity (DTO)
+    internal class Book
+    {
+        public int ID { get; set; }
+        public string Title { get; set; }
+        public string Author { get; set; }
+        public string ISBN { get; set; }
+        public string Year { get; set; }
+        
+        public Book(int ID, string title, string author, string isbn, string year)
+        {
+            this.ID = ID;
+            this.Title = title;
+            this.Author = author;
+            this.ISBN = isbn;
+            this.Year = year;
+        }
+
+        public Book(string title, string author, string isbn, string year)
+        {
+            this.Title = title;
+            this.Author = author;
+            this.ISBN = isbn;
+            this.Year = year;
+        }
+
+        public Book(int ID)
+        {
+            this.ID = ID;
+        }
+
+        public Book() { }
+    }
+
+    // Service class (DAO)
+    internal class BookService
+    {
+        DBConnection conn;
+        public BookService()
+        {
+            conn = DBConnection.getConnection();
+        }
+
+        public ArrayList getAllBooks()
+        { 
+            return conn.SelectAllBooks();
+        }
+
+        public void AddNewBook(Book newBook)
+        {
+            conn.InsertBook(newBook);
+        }
+
+        public bool EditBook(Book editedBook)
+        {
+
+            return true;
+        }
+
+        public bool DeleteBook(Book bookToDelete)
+        {
+
+            return true;
+        }
+    }
+
+    // Database connection class
     internal class DBConnection
     {
         private string DB_NAME;
         private string DB_USER;
         private string DB_PASS;
-        public DBConnection()
+        private MySqlCommand cmd;
+        private DBConnection()
         {
             loadConfigs();
             connect();
@@ -190,17 +262,36 @@ namespace ConsoleApplication
 
         private void connect()
         {
+            string connString = string.Format("server=localhost;userid={1};password={2};database={0}", DB_NAME, DB_USER, DB_PASS);
+            var conn = new MySqlConnection(connString);
+            conn.Open();
 
+            cmd = new MySqlCommand();
+            cmd.Connection = conn;
         }
-    }
 
-    internal class Book
-    {
-        
-    }
+        public ArrayList SelectAllBooks(string table = "tb_books")
+        {
+            ArrayList allBooks = new ArrayList();
+            cmd.CommandText = string.Format("SELECT * FROM {0};", table);
+            MySqlDataReader rdr = cmd.ExecuteReader();
+            while(rdr.Read())
+            {
+                allBooks.Add(new Book(rdr.GetInt32(0), rdr.GetString(1), rdr.GetString(2), rdr.GetString(3), rdr.GetString(4)));
+            }
+            rdr.Close();
+            return allBooks;
+        }
 
-    internal class BookService
-    {
+        public void InsertBook(Book newBook, string table = "tb_books")
+        {
+            cmd.CommandText = string.Format("INSERT INTO {0}(`title`,`author`,`isbn`,`year`) VALUES('{1}','{2}','{3}','{4}')", table, newBook.Title, newBook.Author, newBook.ISBN, newBook.Year);
+            cmd.ExecuteNonQuery();
+        }
 
+        public static DBConnection getConnection()
+        {
+            return new DBConnection();
+        }
     }
 }
